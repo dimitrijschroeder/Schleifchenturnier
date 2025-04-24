@@ -16,12 +16,12 @@ if 'players' not in st.session_state:
     st.session_state.semifinals = None
     st.session_state.manual_edit = False
 
-st.title("🎾 Fast Four")
+st.title("🎾 Fast 4")
 
 # Spielerliste laden
 st.header("📥 Spielerliste")
 loaded_names = st.text_area("Spieler (ein Name pro Zeile)")
-if st.button("Spielerliste übernehmen"):
+if st.button("📂 Liste laden"):
     names = [n.strip() for n in loaded_names.strip().split("\n") if n.strip()]
     st.session_state.players = []
     st.session_state.scores.clear()
@@ -32,10 +32,10 @@ if st.button("Spielerliste übernehmen"):
         st.session_state.differentials[n] = ['X'] * st.session_state.round
 
 # Spieler-Eingabe & Verwaltung
-st.markdown("Liste bearbeiten")
+st.subheader("Liste bearbeiten")
 col1, col2 = st.columns(2)
 with col1:
-    with st.form(key="add_player_form", clear_on_submit=True):
+    with st.form(key="add_player_form", clear_on_submit=True, border=False):
         new_player = st.text_input("Spieler hinzufügen", key="new_player_form_input")
         submit = st.form_submit_button("➕ Hinzufügen")
         if submit and new_player.strip():
@@ -56,7 +56,7 @@ st.markdown("---")
 # Neue Runde auslosen & manuelle Bearbeitung
 st.header("🌀 Auslosung")
 col1, col2 = st.columns(2)
-if col1.button("Runde auslosen"):
+if col1.button("🎲 Auslosen"):
     grouped = defaultdict(list)
     for p in st.session_state.players:
         played = sum(1 for x in st.session_state.scores[p] if x != 'X')
@@ -82,7 +82,7 @@ if col1.button("Runde auslosen"):
     st.session_state.results_input = {}
     st.session_state.manual_edit = False
 
-if col2.button("✏️ Manuell bearbeiten"):
+if col2.button("✏️ Bearbeiten"):
     st.session_state.manual_edit = not st.session_state.manual_edit
 
 if st.session_state.manual_edit:
@@ -90,7 +90,7 @@ if st.session_state.manual_edit:
     for idx, (t1, t2) in enumerate(st.session_state.matches):
         c1, c2, c3, c4 = st.columns(4)
         all_options = sorted(st.session_state.players)
-        new1 = c1.selectbox(f"Match {idx+1} – Team A Spieler 1", all_options, index=all_options.index(t1[0]), key=f"m_{idx}_0")
+        new1 = c1.selectbox(f"**Match {idx+1}** – Team A Spieler 1", all_options, index=all_options.index(t1[0]), key=f"m_{idx}_0")
         new2 = c2.selectbox(f"Spieler 2", all_options, index=all_options.index(t1[1]), key=f"m_{idx}_1")
         new3 = c3.selectbox(f"Team B Spieler 1", all_options, index=all_options.index(t2[0]), key=f"m_{idx}_2")
         new4 = c4.selectbox(f"Spieler 2", all_options, index=all_options.index(t2[1]), key=f"m_{idx}_3")
@@ -103,12 +103,12 @@ if st.session_state.manual_edit:
             st.session_state.byes = bye_edit
 
 # Anzeige der Matches & Ergebnis-Eingabe
-st.header(f"Runde {st.session_state.round + 1}")
+st.subheader(f"Runde {st.session_state.round + 1}")
 st.session_state.results_input = {}
 for i, (t1, t2) in enumerate(st.session_state.matches):
     col1 = st.columns(1)[0]
     with col1:
-        st.markdown(f"**Match {i+1}:** {t1[0]} & {t1[1]} vs {t2[0]} & {t2[1]}")
+        st.markdown(f"**Match {i+1}:** {t1[0]}/{t1[1]} vs. {t2[0]}/{t2[1]}")
         st.session_state.results_input[i] = st.text_input(f"Ergebnis {i+1} (z. B. 4:2)", key=f"res_{st.session_state.round}_{i}")
 
 if st.session_state.byes:
@@ -171,12 +171,12 @@ def render_table(data_dict, title, bold_top8=False):
     table = []
     for i, p in enumerate(ranking):
         row = {
-            "Spieler": f"**{p}**" if bold_top8 and i < 8 else p,
+            "Spieler": f"{p}  (✓)" if bold_top8 and i < 8 else p,
             "Spiele": sum(1 for x in data_dict[p] if x != 'X')
         }
         for r in range(max_r):
             row[f"R{r+1}"] = data_dict[p][r] if r < len(data_dict[p]) else 'X'
-        row["Summe"] = sum(x for x in data_dict[p] if x != 'X')
+        row["∑"] = sum(x for x in data_dict[p] if x != 'X')
         table.append(row)
 
     df = pd.DataFrame(table)
