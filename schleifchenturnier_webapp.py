@@ -32,7 +32,7 @@ if st.button("Spielerliste übernehmen"):
         st.session_state.differentials[n] = ['X'] * st.session_state.round
 
 # Spieler-Eingabe & Verwaltung
-st.header("Liste bearbeiten")
+st.markdown("Liste bearbeiten")
 col1, col2 = st.columns(2)
 with col1:
     with st.form(key="add_player_form", clear_on_submit=True):
