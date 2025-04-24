@@ -103,7 +103,7 @@ if st.session_state.manual_edit:
             st.session_state.byes = bye_edit
 
 # Anzeige der Matches & Ergebnis-Eingabe
-st.header(f"Runde {st.session_state.round + 1} Ergebnisse")
+st.header(f"Runde {st.session_state.round + 1}")
 st.session_state.results_input = {}
 for i, (t1, t2) in enumerate(st.session_state.matches):
     col1 = st.columns(1)[0]
