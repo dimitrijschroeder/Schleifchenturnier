@@ -183,9 +183,6 @@ def render_table(data_dict, title, bold_top8=False):
     df.index = [i+1 for i in range(len(df))]  # Start index at 1
     st.dataframe(df)
 
-    if len(df) > 8:
-        st.markdown("<hr style='margin-top:-1em; border-top: 3px solid black;'>", unsafe_allow_html=True)
-
 render_table(st.session_state.scores, "Siege", bold_top8=True)
 render_table(st.session_state.differentials, "Spiele")
 
