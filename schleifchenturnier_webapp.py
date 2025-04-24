@@ -206,7 +206,7 @@ with st.expander("📜 History", expanded=False):
         # Spielfrei anzeigen
         eingesetzte = set()
         for m in matches:
-            names = m.split(":")[0].replace(" & ", ";").replace(" vs. ", ";").split(";")
+            names = m.split(":")[0].replace(" & ", ";").replace(" vs ", ";").split(";")
             eingesetzte.update([n.strip() for n in names])
         spielfrei = sorted(set(st.session_state.players) - eingesetzte)
         if spielfrei:
