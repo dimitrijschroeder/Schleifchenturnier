@@ -3,23 +3,43 @@ import random
 from collections import defaultdict
 import pandas as pd
 
-st.set_page_config(page_title="Fast Four Tournament", layout="wide")
+# Hilfsfunktionen
+def team_key(t1, t2):
+    return frozenset([frozenset(t1), frozenset(t2)])
+
+def has_played_before(t1, t2):
+    return team_key(t1, t2) in st.session_state.pair_history
 
 def update_pair_history(t1, t2):
     st.session_state.pair_history.add(team_key(t1, t2))
 
-# Session state initialisieren
+def highlight_match(t1, t2):
+    return "red" if has_played_before(t1, t2) else "black"
+
+# 🧠 Session state initialisieren
 if 'players' not in st.session_state:
     st.session_state.players = []
+if 'scores' not in st.session_state:
     st.session_state.scores = defaultdict(list)
+if 'differentials' not in st.session_state:
     st.session_state.differentials = defaultdict(list)
+if 'round' not in st.session_state:
     st.session_state.round = 0
+if 'matches' not in st.session_state:
     st.session_state.matches = []
+if 'byes' not in st.session_state:
     st.session_state.byes = []
+if 'semifinals' not in st.session_state:
     st.session_state.semifinals = None
+if 'manual_edit' not in st.session_state:
     st.session_state.manual_edit = False
+if 'pair_history' not in st.session_state:
+    st.session_state.pair_history = set()
+if 'history' not in st.session_state:
     st.session_state.history = []
 
+# Titel
+st.set_page_config(page_title="Fast Four Tournament", layout="wide")
 st.title("🎾 Fast 4")
 
 # Spielerliste laden
@@ -89,52 +109,101 @@ if col1.button("🎲 Auslosen"):
 if col2.button("✏️ Bearbeiten"):
     st.session_state.manual_edit = not st.session_state.manual_edit
 
+# ⚙️ Erweiterter Bearbeitungsmodus mit Validierung
 if st.session_state.manual_edit:
-    st.markdown("**✏️ Bearbeite die Paarungen**")
+    st.markdown("**✏️ Paarungen bearbeiten**")
+    used_names = set()
+    name_counts = defaultdict(int)
+
+    def color_name(name):
+        if name_counts[name] > 1:
+            return f"🟥 {name}"
+        return name
+
     for idx, (t1, t2) in enumerate(st.session_state.matches):
         c1, c2, c3, c4 = st.columns(4)
-        all_options = sorted(st.session_state.players)
-        new1 = c1.selectbox(f"**Match {idx+1}** – Team A Spieler 1", all_options, index=all_options.index(t1[0]), key=f"m_{idx}_0")
-        new2 = c2.selectbox(f"Spieler 2", all_options, index=all_options.index(t1[1]), key=f"m_{idx}_1")
-        new3 = c3.selectbox(f"Team B Spieler 1", all_options, index=all_options.index(t2[0]), key=f"m_{idx}_2")
-        new4 = c4.selectbox(f"Spieler 2", all_options, index=all_options.index(t2[1]), key=f"m_{idx}_3")
+        all_players = st.session_state.players[:]
+
+        current_names = t1 + t2
+        for name in current_names:
+            name_counts[name] += 1
+
+        new1 = c1.selectbox(f"Match {idx+1} A1", all_players, index=all_players.index(t1[0]), key=f"m{idx}_a1")
+        new2 = c2.selectbox(f"A2", all_players, index=all_players.index(t1[1]), key=f"m{idx}_a2")
+        new3 = c3.selectbox(f"B1", all_players, index=all_players.index(t2[0]), key=f"m{idx}_b1")
+        new4 = c4.selectbox(f"B2", all_players, index=all_players.index(t2[1]), key=f"m{idx}_b2")
+
+        # Spielerzähler aktualisieren
+        name_counts[new1] += 1
+        name_counts[new2] += 1
+        name_counts[new3] += 1
+        name_counts[new4] += 1
+
+        used_names.update([new1, new2, new3, new4])
+
+        # Überprüfe auf doppelte Paarungen
+        team_duplicate = has_played_before([new1, new2], [new3, new4])
+
+        def label_with_flag(name, is_team_repeated):
+            if name_counts[name] > 1 or is_team_repeated:
+                return f"🟥 {name}"
+            return name
+
         st.session_state.matches[idx] = ([new1, new2], [new3, new4])
+        c1.markdown(label_with_flag(new1, team_duplicate))
+        c2.markdown(label_with_flag(new2, team_duplicate))
+        c3.markdown(label_with_flag(new3, team_duplicate))
+        c4.markdown(label_with_flag(new4, team_duplicate))
 
-    if st.session_state.byes:
-        st.markdown("**✏️ Spielfreie Spieler bearbeiten**")
-        bye_edit = st.multiselect("Spielfrei (max 3)", options=sorted(st.session_state.players), default=st.session_state.byes)
-        if len(bye_edit) <= 3:
-            st.session_state.byes = bye_edit
+    not_assigned = sorted(set(st.session_state.players) - used_names)
+    st.markdown("**🛋️ Nicht eingeteilt:** " + (", ".join(not_assigned) if not_assigned else "–"))
 
-# Anzeige der Matches & Ergebnis-Eingabe
-st.subheader(f"Runde {st.session_state.round + 1}")
-st.session_state.results_input = {}
+# 📝 Anzeige der aktuellen Runde
+st.subheader(f"📝 Runde {st.session_state.round + 1}")
+
+# Anzeige der Paarungen mit Wiederholungsprüfung
 for i, (t1, t2) in enumerate(st.session_state.matches):
-    col1 = st.columns(1)[0]
-    with col1:
-        st.markdown(f"**Match {i+1}:** {t1[0]}/{t1[1]} vs. {t2[0]}/{t2[1]}")
-        st.session_state.results_input[i] = st.text_input(f"Ergebnis {i+1} (z. B. 4:2)", key=f"res_{st.session_state.round}_{i}")
+    color = highlight_match(t1, t2)
+    st.markdown(
+        f"<span style='color:{color}'>Match {i+1}: {t1[0]} & {t1[1]} vs {t2[0]} & {t2[1]}</span>",
+        unsafe_allow_html=True
+    )
 
+# Spielfrei anzeigen
 if st.session_state.byes:
-    st.markdown("**Spielfrei:** " + ", ".join(st.session_state.byes))
+    st.markdown("**🛋️ Spielfrei:** " + ", ".join(st.session_state.byes))
 
+# Eingabefelder für Ergebnisse
+st.subheader("🎯 Ergebnisse eingeben")
+if 'results_input' not in st.session_state:
+    st.session_state.results_input = {}
+
+for i, (t1, t2) in enumerate(st.session_state.matches):
+    label = f"Match {i+1}: {t1[0]} & {t1[1]} vs {t2[0]} & {t2[1]}"
+    st.session_state.results_input[i] = st.text_input(label, key=f"res_{st.session_state.round}_{i}")
+
+# Ergebnisse auswerten
 if st.button("✅ Ergebnisse eintragen"):
     round_results = {}
     history_entry = []
     valid = True
+
     for i, (t1, t2) in enumerate(st.session_state.matches):
-        result = st.session_state.results_input[i].strip()
+        result = st.session_state.results_input.get(i, "").strip()
         match_text = f"{t1[0]} & {t1[1]} vs {t2[0]} & {t2[1]}"
         if not result:
             for p in t1 + t2:
                 round_results[p] = ('X', 'X')
+            history_entry.append(f"{match_text}: nicht gespielt")
             continue
         try:
             score1, score2 = map(int, result.split(":"))
         except:
-            st.error(f"Ungültiges Ergebnis bei Match {i+1}")
+            st.error(f"❌ Ungültiges Ergebnis bei Match {i+1}")
             valid = False
             break
+
+        # Sieger bekommt Schleifchen (1), Verlierer 0
         if score1 > score2:
             for p in t1:
                 round_results[p] = (score1 - score2, 1)
@@ -148,6 +217,10 @@ if st.button("✅ Ergebnisse eintragen"):
 
         history_entry.append(f"{match_text}: {score1}:{score2}")
 
+        # Paarung zur Historie hinzufügen
+        update_pair_history(t1, t2)
+
+    # Ergebnisse speichern
     if valid:
         for p in st.session_state.players:
             if p in round_results:
@@ -157,9 +230,10 @@ if st.button("✅ Ergebnisse eintragen"):
             else:
                 st.session_state.scores[p].append('X')
                 st.session_state.differentials[p].append('X')
+
         st.session_state.history.append((st.session_state.round + 1, history_entry))
         st.session_state.round += 1
-        st.success("Runde erfolgreich gespeichert!")
+        st.success("Runde erfolgreich gespeichert! ✅")
 
 # Rangliste anzeigen
 st.markdown("---")
@@ -195,23 +269,6 @@ def render_table(data_dict, title, bold_top8=False):
 render_table(st.session_state.scores, "Siege", bold_top8=True)
 render_table(st.session_state.differentials, "Spiele")
 
-# Erweiterte Match-History anzeigen
-# st.markdown("---")
-# st.subheader("📜 History")
-with st.expander("📜 History", expanded=False):
-    for rnd, matches in st.session_state.history:
-        st.markdown(f"**Runde {rnd}:**")
-        for m in matches:
-            st.markdown(f"- {m}")
-        # Spielfrei anzeigen
-        eingesetzte = set()
-        for m in matches:
-            names = m.split(":")[0].replace(" & ", ";").replace(" vs. ", ";").split(";")
-            eingesetzte.update([n.strip() for n in names])
-        spielfrei = sorted(set(st.session_state.players) - eingesetzte)
-        if spielfrei:
-            st.markdown(f"🛋️ **Spielfrei**: {', '.join(spielfrei)}")
-
 # Halbfinale anzeigen
 st.markdown("---")
 st.header("🏆 Halbfinale")
@@ -227,3 +284,19 @@ if st.button("Halbfinale anzeigen"):
 if st.session_state.semifinals:
     st.success(st.session_state.semifinals[0])
     st.success(st.session_state.semifinals[1])
+
+# Erweiterte Match-History anzeigen
+st.markdown("---")
+st.subheader("📜 History aller Runden")
+for rnd, matches in st.session_state.history:
+    st.markdown(f"**Runde {rnd}:**")
+    for m in matches:
+        st.markdown(f"- {m}")
+    # Spielfrei anzeigen
+    eingesetzte = set()
+    for m in matches:
+        names = m.split(":")[0].replace(" & ", ";").replace(" vs ", ";").split(";")
+        eingesetzte.update([n.strip() for n in names])
+    spielfrei = sorted(set(st.session_state.players) - eingesetzte)
+    if spielfrei:
+        st.markdown(f"🛋️ Spielfrei: {', '.join(spielfrei)}")
