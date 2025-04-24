@@ -3,7 +3,7 @@ import random
 from collections import defaultdict
 import pandas as pd
 
-st.set_page_config(page_title="Fast Four Turnament", layout="wide")
+st.set_page_config(page_title="Fast Four Tournament", layout="wide")
 
 # Session state initialisieren
 if 'players' not in st.session_state:
