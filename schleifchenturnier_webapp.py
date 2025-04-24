@@ -36,7 +36,7 @@ st.header("Liste bearbeiten")
 col1, col2 = st.columns(2)
 with col1:
     with st.form(key="add_player_form", clear_on_submit=True):
-        new_player = st.text_input("Neuer Spielername", key="new_player_form_input")
+        new_player = st.text_input("Spieler hinzufügen", key="new_player_form_input")
         submit = st.form_submit_button("➕ Hinzufügen")
         if submit and new_player.strip():
             if new_player not in st.session_state.players:
