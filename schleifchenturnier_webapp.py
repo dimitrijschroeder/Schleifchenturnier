@@ -3,7 +3,7 @@ import random
 from collections import defaultdict
 import pandas as pd
 
-st.set_page_config(page_title="Schleifchenturnier", layout="wide")
+st.set_page_config(page_title="Fast Four Turnament", layout="wide")
 
 # Session state initialisieren
 if 'players' not in st.session_state:
@@ -16,10 +16,10 @@ if 'players' not in st.session_state:
     st.session_state.semifinals = None
     st.session_state.manual_edit = False
 
-st.title("🎾 Schleifchenturnier Web-App")
+st.title("🎾 Fast Four")
 
 # Spielerliste laden
-st.header("📥 Spielerliste laden")
+st.header("📥 Spielerliste")
 loaded_names = st.text_area("Spieler (ein Name pro Zeile)")
 if st.button("Spielerliste übernehmen"):
     names = [n.strip() for n in loaded_names.strip().split("\n") if n.strip()]
@@ -32,7 +32,7 @@ if st.button("Spielerliste übernehmen"):
         st.session_state.differentials[n] = ['X'] * st.session_state.round
 
 # Spieler-Eingabe & Verwaltung
-st.header("Spieler hinzufügen / entfernen")
+st.header("Liste bearbeiten")
 col1, col2 = st.columns(2)
 with col1:
     with st.form(key="add_player_form", clear_on_submit=True):
@@ -54,7 +54,7 @@ with col2:
 st.markdown("---")
 
 # Neue Runde auslosen & manuelle Bearbeitung
-st.header("🌀 Neue Runde auslosen")
+st.header("🌀 Auslosung")
 col1, col2 = st.columns(2)
 if col1.button("Runde auslosen"):
     grouped = defaultdict(list)
@@ -186,8 +186,8 @@ def render_table(data_dict, title, bold_top8=False):
     if len(df) > 8:
         st.markdown("<hr style='margin-top:-1em; border-top: 3px solid black;'>", unsafe_allow_html=True)
 
-render_table(st.session_state.scores, "Schleifchen", bold_top8=True)
-render_table(st.session_state.differentials, "Spiele-Differenz")
+render_table(st.session_state.scores, "Siege", bold_top8=True)
+render_table(st.session_state.differentials, "Spiele")
 
 # Halbfinale anzeigen
 st.markdown("---")
