@@ -24,28 +24,33 @@ def download_session_button(filename="schleifchenturnier_backup.pkl"):
         mime="application/octet-stream"
     )
 
+def load_session_from_upload(uploaded_file):
+    try:
+        loaded_state = pickle.load(uploaded_file)
+        apply_loaded_state(loaded_state)
+
+        # Nach dem Laden Matches wieder herstellen
+        if "matches" in st.session_state and st.session_state.matches:
+            st.session_state.session_loaded = True
+        
+        st.success("✅ Session erfolgreich von Datei geladen!")
+    except Exception as e:
+        st.error(f"❌ Fehler beim Hochladen: {e}")
+
 def load_session_from_file(filename="session_backup.pkl"):
-    """Lädt eine Session vom Server."""
     try:
         with open(filename, "rb") as f:
             loaded_state = pickle.load(f)
         apply_loaded_state(loaded_state)
+
+        if "matches" in st.session_state and st.session_state.matches:
+            st.session_state.session_loaded = True
+
         st.success("✅ Session erfolgreich vom Server geladen!")
-        st.session_state.ready_to_rerun = True
     except FileNotFoundError:
         st.error("❌ Keine gespeicherte Session gefunden.")
     except Exception as e:
         st.error(f"❌ Fehler beim Laden: {e}")
-
-def load_session_from_upload(uploaded_file):
-    """Lädt eine Session aus einem hochgeladenen FileUploader."""
-    try:
-        loaded_state = pickle.load(uploaded_file)
-        apply_loaded_state(loaded_state)
-        st.success("✅ Session erfolgreich von Datei geladen!")
-        st.session_state.ready_to_rerun = True
-    except Exception as e:
-        st.error(f"❌ Fehler beim Hochladen: {e}")
 
 def apply_loaded_state(loaded_state):
     """Überträgt geladene Daten sicher in den aktuellen Session-State."""
@@ -59,6 +64,64 @@ def apply_loaded_state(loaded_state):
             continue
         if isinstance(value, ALLOWED_TYPES):
             st.session_state[key] = value
+
+def render_current_matches():
+    if st.session_state.get("matches") and len(st.session_state.matches) > 0:
+        st.subheader(f"📝 Runde {st.session_state.round + 1}")
+
+        all_old_teams = set()
+        for rnd, matches in st.session_state.history:
+            for m in matches:
+                parts = m.split(":")[0]
+                teams = parts.split(" vs ")
+                team1 = frozenset(teams[0].replace("&", "").split())
+                team2 = frozenset(teams[1].replace("&", "").split())
+                all_old_teams.add(team1)
+                all_old_teams.add(team2)
+
+        # Eingabefelder vorbereiten
+        if "results_input" not in st.session_state:
+            st.session_state.results_input = {}
+
+        for i, (t1, t2) in enumerate(st.session_state.matches):
+            team1_repeated = frozenset(t1) in all_old_teams
+            team2_repeated = frozenset(t2) in all_old_teams
+
+            def format_player(name, repeated):
+                return f"<span style='color:red'>{name}</span>" if repeated else name
+
+            team1_names = f"{format_player(t1[0], team1_repeated)} & {format_player(t1[1], team1_repeated)}"
+            team2_names = f"{format_player(t2[0], team2_repeated)} & {format_player(t2[1], team2_repeated)}"
+
+            # Anzeige Match
+            st.markdown(
+                f"**Match {i+1}:** {team1_names} vs {team2_names}",
+                unsafe_allow_html=True
+            )
+
+            # Direkt darunter Eingabefeld für Ergebnis
+            st.session_state.results_input[i] = st.text_input(f"Ergebnis Match {i+1} (z.B. 4:2)", key=f"res_{st.session_state.round}_{i}")
+
+        # Spielfrei anzeigen
+        if st.session_state.byes:
+            st.markdown("🛋️ Spielfrei: " + ", ".join(st.session_state.byes))
+
+def team_key_single(team):
+    """Eindeutiger Key für ein Team (2 Spieler)"""
+    return frozenset(team)
+
+def has_played_together_before(team):
+    """Überprüft, ob ein Team schon einmal zusammengespielt hat."""
+    if 'team_history' not in st.session_state:
+        st.session_state.team_history = set()
+        return False
+    return team_key_single(team) in st.session_state.team_history
+
+def update_team_history(t1):
+    """Speichert ein Team als zusammen gespielt."""
+    if 'team_history' not in st.session_state:
+        st.session_state.team_history = set()
+    st.session_state.team_history.add(team_key_single(t1))
 
 st.set_page_config(page_title="Fast Four Tournament", layout="wide")
 
@@ -76,10 +139,12 @@ if 'players' not in st.session_state:
     st.session_state.semifinals = None
     st.session_state.manual_edit = False
     st.session_state.history = []
+    st.session_state.recent_matches = []
     # st.session_state.t1=[]
     # st.session_state.t2=[]
 
 st.title("🎾 Fast 4")
+
 
 # Spielerliste laden
 st.header("📥 Spielerliste")
@@ -145,6 +210,10 @@ if col1.button("🎲 Auslosen"):
     st.session_state.results_input = {}
     st.session_state.manual_edit = False
 
+    # Nach dem Speichern der ausgelosten Matches
+    for t1, t2 in st.session_state.matches:
+        st.session_state.recent_matches.append((t1, t2))
+
 if col2.button("✏️ Bearbeiten"):
     st.session_state.manual_edit = not st.session_state.manual_edit
 
@@ -166,15 +235,13 @@ if st.session_state.manual_edit:
             st.session_state.byes = bye_edit
 
 # Anzeige der Matches & Ergebnis-Eingabe
-st.subheader(f"Runde {st.session_state.round + 1}")
-st.session_state.results_input = {}
-for i, (t1, t2) in enumerate(st.session_state.matches):
-    col1 = st.columns(1)[0]
-    with col1:
-        st.markdown(f"**Match {i+1}:** {t1[0]}/{t1[1]} vs. {t2[0]}/{t2[1]}")
-        st.session_state.results_input[i] = st.text_input(f"Ergebnis {i+1} (z. B. 4:2)", key=f"res_{st.session_state.round}_{i}")
-        st.session_state.t1=t1
-        st.session_state.t2=t2
+render_current_matches()
+
+# # Zusätzlich Ergebnisfelder vorbereiten:
+# st.session_state.results_input = {}
+# for i, (t1, t2) in enumerate(st.session_state.matches):
+#     result = st.text_input(f"Ergebnis Match {i+1} (z.B. 4:2)", key=f"res_{st.session_state.round}_{i}")
+#     st.session_state.results_input[i] = result
 
 if st.session_state.byes:
     st.markdown("**Spielfrei:** " + ", ".join(st.session_state.byes))
@@ -218,6 +285,12 @@ if st.button("✅ Ergebnisse eintragen"):
             else:
                 st.session_state.scores[p].append('X')
                 st.session_state.differentials[p].append('X')
+
+        # Neu: Teams zur History hinzufügen
+        for t1, t2 in st.session_state.matches:
+            update_team_history(t1)
+            update_team_history(t2)
+
         st.session_state.history.append((st.session_state.round + 1, history_entry))
         st.session_state.round += 1
         st.success("Runde erfolgreich gespeichert!")
@@ -310,6 +383,7 @@ with st.expander("💾 Session speichern / laden", expanded=False):
                             continue
                         st.session_state[key] = saved_state[key]
                     st.success("✅ Session erfolgreich geladen!")
+                    
                     st.rerun()  # 👉 richtig für neue Streamlit-Version
                 except FileNotFoundError:
                     st.error("❌ Keine gespeicherte Session gefunden.")
