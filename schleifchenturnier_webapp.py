@@ -219,20 +219,66 @@ if col2.button("✏️ Bearbeiten"):
 
 if st.session_state.manual_edit:
     st.markdown("**✏️ Bearbeite die Paarungen**")
+
+    used_players = set()
+    match_inputs = []
+
     for idx, (t1, t2) in enumerate(st.session_state.matches):
         c1, c2, c3, c4 = st.columns(4)
-        all_options = sorted(st.session_state.players)
-        new1 = c1.selectbox(f"**Match {idx+1}** – Team A Spieler 1", all_options, index=all_options.index(t1[0]), key=f"m_{idx}_0")
-        new2 = c2.selectbox(f"Spieler 2", all_options, index=all_options.index(t1[1]), key=f"m_{idx}_1")
-        new3 = c3.selectbox(f"Team B Spieler 1", all_options, index=all_options.index(t2[0]), key=f"m_{idx}_2")
-        new4 = c4.selectbox(f"Spieler 2", all_options, index=all_options.index(t2[1]), key=f"m_{idx}_3")
-        st.session_state.matches[idx] = ([new1, new2], [new3, new4])
+        all_options = ["-"] + sorted(st.session_state.players)
+
+        # Vorbelegung
+        player1 = t1[0] if t1[0] in st.session_state.players else "-"
+        player2 = t1[1] if t1[1] in st.session_state.players else "-"
+        player3 = t2[0] if t2[0] in st.session_state.players else "-"
+        player4 = t2[1] if t2[1] in st.session_state.players else "-"
+
+        sel1 = c1.selectbox(f"Match {idx+1} – Team A1", all_options, index=all_options.index(player1), key=f"m_{idx}_a1")
+        sel2 = c2.selectbox(f"Team A2", all_options, index=all_options.index(player2), key=f"m_{idx}_a2")
+        sel3 = c3.selectbox(f"Team B1", all_options, index=all_options.index(player3), key=f"m_{idx}_b1")
+        sel4 = c4.selectbox(f"Team B2", all_options, index=all_options.index(player4), key=f"m_{idx}_b2")
+
+        match_inputs.append([sel1, sel2, sel3, sel4])
+
+    # Spieler-Verwendung prüfen & Konflikte auflösen
+    final_matches = []
+    assigned_players = set()
+
+    for inputs in match_inputs:
+        team1 = []
+        team2 = []
+
+        for sel in inputs[:2]:
+            if sel != "-" and sel not in assigned_players:
+                team1.append(sel)
+                assigned_players.add(sel)
+            else:
+                team1.append("-")
+
+        for sel in inputs[2:]:
+            if sel != "-" and sel not in assigned_players:
+                team2.append(sel)
+                assigned_players.add(sel)
+            else:
+                team2.append("-")
+
+        final_matches.append((team1, team2))
+
+    # Matches aktualisieren
+    st.session_state.matches = []
+    for team1, team2 in final_matches:
+        st.session_state.matches.append((team1, team2))
+
+    # Spielfrei neu berechnen
+    current_assigned = set()
+    for t1, t2 in st.session_state.matches:
+        current_assigned.update([p for p in t1 if p != "-"])
+        current_assigned.update([p for p in t2 if p != "-"])
+
+    st.session_state.byes = sorted(set(st.session_state.players) - current_assigned)
 
     if st.session_state.byes:
-        st.markdown("**✏️ Spielfreie Spieler bearbeiten**")
-        bye_edit = st.multiselect("Spielfrei (max 3)", options=sorted(st.session_state.players), default=st.session_state.byes)
-        if len(bye_edit) <= 3:
-            st.session_state.byes = bye_edit
+        st.markdown("🛋️ **Aktualisierte Spielfrei-Liste:** " + ", ".join(st.session_state.byes))
 
 # Anzeige der Matches & Ergebnis-Eingabe
 render_current_matches()
@@ -242,9 +288,8 @@ render_current_matches()
 # for i, (t1, t2) in enumerate(st.session_state.matches):
 #     result = st.text_input(f"Ergebnis Match {i+1} (z.B. 4:2)", key=f"res_{st.session_state.round}_{i}")
 #     st.session_state.results_input[i] = result
-
-if st.session_state.byes:
-    st.markdown("**Spielfrei:** " + ", ".join(st.session_state.byes))
+# if st.session_state.byes:
+#     st.markdown("**Spielfrei:** " + ", ".join(st.session_state.byes))
 
 if st.button("✅ Ergebnisse eintragen"):
     round_results = {}
