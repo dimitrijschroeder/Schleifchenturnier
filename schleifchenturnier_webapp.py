@@ -2,6 +2,65 @@ import streamlit as st
 import random
 from collections import defaultdict
 import pandas as pd
+# import pickle
+
+import pickle
+import io
+
+ALLOWED_TYPES = (str, int, float, bool, list, dict)
+
+def save_session_to_file(filename="session_backup.pkl"):
+    """Speichert den Session-State sicher auf dem Server."""
+    with open(filename, "wb") as f:
+        pickle.dump(dict(st.session_state), f)
+
+def download_session_button(filename="schleifchenturnier_backup.pkl"):
+    """Bietet die Session als Download-Button an."""
+    buffer = io.BytesIO()
+    pickle.dump(dict(st.session_state), buffer)
+    buffer.seek(0)
+    st.download_button(
+        label="⬇️ Session herunterladen",
+        data=buffer,
+        file_name=filename,
+        mime="application/octet-stream"
+    )
+
+def load_session_from_file(filename="session_backup.pkl"):
+    """Lädt eine Session vom Server."""
+    try:
+        with open(filename, "rb") as f:
+            loaded_state = pickle.load(f)
+        apply_loaded_state(loaded_state)
+        st.success("✅ Session erfolgreich vom Server geladen!")
+        st.session_state.ready_to_rerun = True
+    except FileNotFoundError:
+        st.error("❌ Keine gespeicherte Session gefunden.")
+    except Exception as e:
+        st.error(f"❌ Fehler beim Laden: {e}")
+
+def load_session_from_upload(uploaded_file):
+    """Lädt eine Session aus einem hochgeladenen FileUploader."""
+    try:
+        loaded_state = pickle.load(uploaded_file)
+        apply_loaded_state(loaded_state)
+        st.success("✅ Session erfolgreich von Datei geladen!")
+        st.session_state.ready_to_rerun = True
+    except Exception as e:
+        st.error(f"❌ Fehler beim Hochladen: {e}")
+
+def apply_loaded_state(loaded_state):
+    """Überträgt geladene Daten sicher in den aktuellen Session-State."""
+    for key, value in loaded_state.items():
+        if (
+            key.startswith("res_") or
+            key.startswith("m") or
+            key.startswith("FormSubmitter:") or
+            key == "new_player_form_input"
+        ):
+            continue
+        if isinstance(value, ALLOWED_TYPES):
+            st.session_state[key] = value
 
 st.set_page_config(page_title="Fast Four Tournament", layout="wide")
 
@@ -105,6 +164,34 @@ if st.session_state.manual_edit:
         bye_edit = st.multiselect("Spielfrei (max 3)", options=sorted(st.session_state.players), default=st.session_state.byes)
         if len(bye_edit) <= 3:
             st.session_state.byes = bye_edit
+
+# st.markdown("---")
+# st.subheader("💾 Session verwalten")
+
+# col_save, col_load = st.columns(2)
+
+# with col_save:
+#     if st.button("💾 Zwischenspeichern"):
+#         with open("session_backup.pkl", "wb") as f:
+#             pickle.dump(dict(st.session_state), f)
+#         st.success("✅ Session erfolgreich gespeichert!")
+
+# with col_load:
+#     if st.button("📂 Session laden"):
+#         try:
+#             with open("session_backup.pkl", "rb") as f:
+#                 saved_state = pickle.load(f)
+#             for key in saved_state:
+#                 # Nur eigene Datenfelder zurückladen
+#                 if key.startswith("res_") or key.startswith("m") or key == "new_player_form_input":
+#                     continue
+#                 st.session_state[key] = saved_state[key]
+#             st.success("✅ Session erfolgreich geladen!")
+#             st.experimental_rerun()  # wichtig für korrektes Neuladen
+#         except FileNotFoundError:
+#             st.error("❌ Keine gespeicherte Session gefunden.")
+
+
 
 # Anzeige der Matches & Ergebnis-Eingabe
 st.subheader(f"Runde {st.session_state.round + 1}")
@@ -211,6 +298,52 @@ with st.expander("📜 History", expanded=False):
         spielfrei = sorted(set(st.session_state.players) - eingesetzte)
         if spielfrei:
             st.markdown(f"🛋️ **Spielfrei**: {', '.join(spielfrei)}")
+
+# V4
+# st.markdown("---")
+# st.header("💾 Session verwalten")
+
+# Hinweis bei geladenem Backup
+if st.session_state.get("ready_to_rerun"):
+    st.success("✅ Session geladen. Klicke auf '🔄 App neu laden', um fortzufahren.")
+    if st.button("🔄 App neu laden"):
+        st.session_state.pop("ready_to_rerun")
+        st.rerun()
+
+with st.expander("💾 Session speichern / laden", expanded=False):
+
+    col1, col2, col3, col4 = st.columns(4)
+
+    with col1:
+        if st.button("💾 Auf Server speichern"):
+            save_session_to_file()
+
+    with col2:
+        download_session_button()
+
+    with col3:
+            if st.button("📂 Session laden"):
+                try:
+                    with open("session_backup.pkl", "rb") as f:
+                        saved_state = pickle.load(f)
+                    for key in saved_state:
+                        if (
+                            key.startswith("res_") or
+                            key.startswith("m") or
+                            key.startswith("FormSubmitter:") or
+                            key == "new_player_form_input"
+                        ):
+                            continue
+                        st.session_state[key] = saved_state[key]
+                    st.success("✅ Session erfolgreich geladen!")
+                    st.rerun()  # 👉 richtig für neue Streamlit-Version
+                except FileNotFoundError:
+                    st.error("❌ Keine gespeicherte Session gefunden.")
+
+    with col4:
+        uploaded_file = st.file_uploader("Session-Datei hochladen", type=["pkl"], label_visibility="collapsed")
+        if uploaded_file is not None:
+            load_session_from_upload(uploaded_file)
 
 # Halbfinale anzeigen
 st.markdown("---")
