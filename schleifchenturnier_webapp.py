@@ -2,8 +2,6 @@ import streamlit as st
 import random
 from collections import defaultdict
 import pandas as pd
-# import pickle
-
 import pickle
 import io
 
@@ -78,6 +76,8 @@ if 'players' not in st.session_state:
     st.session_state.semifinals = None
     st.session_state.manual_edit = False
     st.session_state.history = []
+    # st.session_state.t1=[]
+    # st.session_state.t2=[]
 
 st.title("🎾 Fast 4")
 
@@ -165,34 +165,6 @@ if st.session_state.manual_edit:
         if len(bye_edit) <= 3:
             st.session_state.byes = bye_edit
 
-# st.markdown("---")
-# st.subheader("💾 Session verwalten")
-
-# col_save, col_load = st.columns(2)
-
-# with col_save:
-#     if st.button("💾 Zwischenspeichern"):
-#         with open("session_backup.pkl", "wb") as f:
-#             pickle.dump(dict(st.session_state), f)
-#         st.success("✅ Session erfolgreich gespeichert!")
-
-# with col_load:
-#     if st.button("📂 Session laden"):
-#         try:
-#             with open("session_backup.pkl", "rb") as f:
-#                 saved_state = pickle.load(f)
-#             for key in saved_state:
-#                 # Nur eigene Datenfelder zurückladen
-#                 if key.startswith("res_") or key.startswith("m") or key == "new_player_form_input":
-#                     continue
-#                 st.session_state[key] = saved_state[key]
-#             st.success("✅ Session erfolgreich geladen!")
-#             st.experimental_rerun()  # wichtig für korrektes Neuladen
-#         except FileNotFoundError:
-#             st.error("❌ Keine gespeicherte Session gefunden.")
-
-
-
 # Anzeige der Matches & Ergebnis-Eingabe
 st.subheader(f"Runde {st.session_state.round + 1}")
 st.session_state.results_input = {}
@@ -201,6 +173,8 @@ for i, (t1, t2) in enumerate(st.session_state.matches):
     with col1:
         st.markdown(f"**Match {i+1}:** {t1[0]}/{t1[1]} vs. {t2[0]}/{t2[1]}")
         st.session_state.results_input[i] = st.text_input(f"Ergebnis {i+1} (z. B. 4:2)", key=f"res_{st.session_state.round}_{i}")
+        st.session_state.t1=t1
+        st.session_state.t2=t2
 
 if st.session_state.byes:
     st.markdown("**Spielfrei:** " + ", ".join(st.session_state.byes))
@@ -344,6 +318,7 @@ with st.expander("💾 Session speichern / laden", expanded=False):
         uploaded_file = st.file_uploader("Session-Datei hochladen", type=["pkl"], label_visibility="collapsed")
         if uploaded_file is not None:
             load_session_from_upload(uploaded_file)
+
 
 # Halbfinale anzeigen
 st.markdown("---")
