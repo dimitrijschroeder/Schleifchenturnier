@@ -283,14 +283,6 @@ if st.session_state.manual_edit:
 # Anzeige der Matches & Ergebnis-Eingabe
 render_current_matches()
 
-# # Zusätzlich Ergebnisfelder vorbereiten:
-# st.session_state.results_input = {}
-# for i, (t1, t2) in enumerate(st.session_state.matches):
-#     result = st.text_input(f"Ergebnis Match {i+1} (z.B. 4:2)", key=f"res_{st.session_state.round}_{i}")
-#     st.session_state.results_input[i] = result
-# if st.session_state.byes:
-#     st.markdown("**Spielfrei:** " + ", ".join(st.session_state.byes))
-
 if st.button("✅ Ergebnisse eintragen"):
     round_results = {}
     history_entry = []
